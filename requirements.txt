@@ -1,0 +1,9 @@
+fastapi==0.104.1
+langchain==0.0.337
+pandas==2.0.3
+python-dotenv==1.0.0
+qdrant_client==1.6.9
+streamlit==1.28.2
+streamlit_extras==0.3.5
+tqdm==4.65.0
+uvicorn==0.24.0.post1
