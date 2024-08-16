@@ -167,21 +167,11 @@ def init():
 
     with st.sidebar:
 
-        st.markdown(
-            """This is an app interface for [Document-Retrieval](https://python.langchain.com/docs/modules/data_connection/) on :green[BigBasketProducts.csv] using :blue[Streamlit].
-            This Query Engine uses :blue[Qdrant] for vector DB & :blue[LangChain] for performing semantic search.  
-            [![VectorDB: Qdrant](https://img.shields.io/badge/VectorDB-Qdrant-blue)](https://github.com/qdrant/qdrant)
-            [![Embeddings: OpenAI](https://img.shields.io/badge/Embeddings-OpenAI-blue)](https://platform.openai.com/docs/guides/embeddings/what-are-embeddings)
-            [![Retriever: LanghChain](https://img.shields.io/badge/Retriever-LanghChain-blue)](https://github.com/langchain-ai/langchain)
-            [![UI: streamlit](https://img.shields.io/badge/UI-streamlit-blue)](https://streamlit.io/)
-            """
-        )
-
-        mention(
-            label="Document-Retrieval",
-            icon="github",
-            url="https://github.com/AbhishekPardhi/Document-Retrieval",
-        )
+        # mention(
+        #     label="Document-Retrieval",
+        #     icon="github",
+        #     url="https://github.com/AbhishekPardhi/Document-Retrieval",
+        # )
 
         st.subheader('Parameters')
         K = st.slider('K', 1, 10, K, help='Sets max number of products  \nthat can be retrieved')
