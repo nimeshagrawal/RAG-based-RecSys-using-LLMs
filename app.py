@@ -5,47 +5,43 @@ import os
 import json
 import time
 import pandas as pd
-from dotenv import load_dotenv
 import streamlit as st
 from streamlit_extras.mention import mention
 import chromadb
-
 from openai import OpenAI
 import json
-from langchain.vectorstores import Qdrant
 from langchain.embeddings.openai import OpenAIEmbeddings
-# from langchain.llms import OpenAI
 from langchain.vectorstores import Chroma
 from langchain.chains import RetrievalQAWithSourcesChain
 from langchain.memory import ConversationSummaryMemory
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQAWithSourcesChain
+from langchain.schema import SystemMessage, HumanMessage
 
-# load_dotenv('../.env')
+import yaml
+# Read YAML file
+with open("config.yaml", 'r') as stream:
+    CONFIG = yaml.safe_load(stream)
 
-# QDRANT_URL = os.getenv('QDRANT_URL')
-# QDRANT_API_KEY = os.getenv('QDRANT_API_KEY')
-COLLECTION_NAME = "big-basket-products-all"
-
+# Number of records to retrieve
 K=4
+
+# Access your secret
+api_key = os.getenv("API_KEY")
 
 #############################################################################################################
 #############################################################################################################
 
 # Promp Template to be used for generating questions
-@st.cache_resource(show_spinner=False)
+# @st.cache_resource(show_spinner=False)
 def PROMPT():
     prompt_template = '''
-    About: You are a Product Recommendation Agent who gets his context from the retrieved descriptions of the products that matches best with the User's query. 
+        You are a Product Recommendation Agent who gets his context from the retrieved descriptions of the products that matches best with the User's query. 
         User is a human who, as a customer, wants to buy a product from this application.
-
         Given below is the summary of conversation between you (AI) and the user (Human):
         Context: {chat_history}
-
         Now use this summary of previous conversations and the retrieved descriptions of products to answer the following question asked by the user:
         Question: {question}
-
         Note: 
         - Give your answer in a compreshenive manner in enumerated format.
         - Do not generate any information on your own, striclty stick to the provided data. 
@@ -58,14 +54,38 @@ def PROMPT():
         template=prompt_template, input_variables=["chat_history", "question"]
     )
 
-@st.cache_resource(show_spinner=False)
+def PROMPT_intent_validator():
+    prompt_template_intent = """
+        You are an intent identifier and comparer. 
+        You will be given old_data and a new_data. 
+        Your task is to identify the intents of old_data and new_data independently.
+        After that you will have to compare both the intents and check if the intents have the same context or not.
+        STRICTLY Reply with a lowercase yes/no.
+        The following is the old_data:
+        ```
+        <old_data>
+        ```
+        The following is the new_data:
+        ```
+        <new_data>
+        ```
+        NOTE: 
+        - Don't generate any additional texts, just repond with yes (or) no.
+        - if `old_data' is empty, then strictly reply with 'no'
+        """
+    return prompt_template_intent
+
+# Load the LLM model for inference
+# @st.cache_resource(show_spinner=False)
 def load_model():
     try:
         model = ChatOpenAI(
-            model='meta-llama/Meta-Llama-3.1-70B-Instruct',
-            api_key="7E4hdDQrPP9mLi52rX4zCkJ2rFKIadOk",
-            base_url="https://api.deepinfra.com/v1/openai",
-            max_tokens = 70000,
+            model=CONFIG['LLM_MODEL'],
+            api_key=api_key,
+            base_url=CONFIG["BASE_URL"],
+            max_tokens = 10000,
+            # temperature = 0.7,
+            # top_p = 0.9
         )
     except Exception as e:
         st.error(e)
@@ -73,6 +93,8 @@ def load_model():
     return model
 
 llm = load_model()
+# print(CONFIG["BASE_URL"])
+# print(api_key)
 
 # Memory to store the conversation history
 def memory():
@@ -86,12 +108,25 @@ def memory():
         )
     return st.session_state.memory
 
+# Wrapper for DeepInfraEmbeddings generation
 class DeepInfraEmbeddings:
-    def __init__(self, api_key, base_url, model="BAAI/bge-base-en-v1.5"):
+    def __init__(self, api_key, base_url, model=CONFIG["EMBED_MODEL"]):
+        """Intialise client to access embedding model
+        Args:
+            api_key (str): Deep-Infra API key
+            base_url (str): URL to access the embeddings
+            model (str, optional): 1024 dimension embeddings. Defaults to "BAAI/bge-large-en-v1.5".
+        """
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.model = model
 
     def embed_documents(self, texts):
+        """Converts given INPUT data to corresponding embeddings
+        Args:
+            texts (str): INPUT database contents as string.
+        Returns:
+            list: List of embeddings
+        """
         if isinstance(texts, str):
             texts = [texts]
 
@@ -107,17 +142,17 @@ class DeepInfraEmbeddings:
         return self.embed_documents([text])[0]
 
 # Retriever to retrieve the products from the database
-@st.cache_resource(show_spinner=False)
+# @st.cache_resource(show_spinner=False)
 def retriever(K):
     client = chromadb.PersistentClient(path=os.path.join(os.getcwd(), 'vector_stores'))
 
     embeddings = DeepInfraEmbeddings(
-                        api_key="7E4hdDQrPP9mLi52rX4zCkJ2rFKIadOk",
-                        base_url="https://api.deepinfra.com/v1/openai"
+                        api_key=api_key,
+                        base_url=CONFIG["BASE_URL"]
                     )
 
     vector_store = Chroma(
-                        collection_name=COLLECTION_NAME,
+                        collection_name=CONFIG["COLLECTION_NAME"],
                         embedding_function=embeddings,  # Pass the DeepInfraEmbeddings instance
                         client=client,
                         persist_directory = os.path.join(os.getcwd(), 'vector_stores')
@@ -141,9 +176,23 @@ def Chain():
     return chain
 
 # Search function to search for the products
-@st.cache_data(show_spinner=False)
+# @st.cache_data(show_spinner=False)
 def search(_chain, user_question):
-    gen_prompt = PROMPT().format(question=user_question, chat_history=memory().load_memory_variables({})['chat_history'][0].content)
+    intent_prompt = PROMPT_intent_validator()
+    intent_prompt = intent_prompt.replace("<old_data>", memory().load_memory_variables({})['chat_history'][0].content)
+    intent_prompt = intent_prompt.replace("<new_data>", user_question)
+
+    intent_sys_message = SystemMessage(content=intent_prompt)
+    intent_user_message = HumanMessage(content="Start.")
+    intent_messages = [intent_sys_message, intent_user_message]
+    intent_response = llm(intent_messages)
+
+    print("INTENT_VALIDATE:", intent_response.content)
+    if intent_response.content == "no":
+        memory().clear()
+    
+    gen_prompt = PROMPT().format(question=user_question, 
+                                 chat_history=memory().load_memory_variables({})['chat_history'][0].content)
     try:
         res = _chain(gen_prompt)
     except Exception as e:
@@ -166,12 +215,6 @@ def init():
     )
 
     with st.sidebar:
-
-        # mention(
-        #     label="Document-Retrieval",
-        #     icon="github",
-        #     url="https://github.com/AbhishekPardhi/Document-Retrieval",
-        # )
 
         st.subheader('Parameters')
         K = st.slider('K', 1, 10, K, help='Sets max number of products  \nthat can be retrieved')
@@ -274,3 +317,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
