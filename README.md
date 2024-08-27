@@ -26,7 +26,7 @@ This work presents a real-time product recommendation system based on **Retrieva
 ### Setup
 1. Install the required packages:\
    ```pip install -r requirements.txt```
-2. Create your account in `DeepInfra` and generate your API key for utilising the embedding and LLM models.
+2. Create your account in `DeepInfra` and generate your API key for utilising the embedding and LLM models. Update required feilds in `config.yaml`
 3. Create your own local vector-database in chromaDB by running the following:\
    ``
 ### Sample conversation
