@@ -87,3 +87,7 @@ This work presents a real-time product recommendation system based on **Retrieva
       
       Also, the **Diaper Pants - XX-Large** and **Diaper Pants - X-Large** by Pampers have similar features, so they are not described separately to avoid redundancy.
 ```
+### Upcoming updates
+- Reducing overall latency in the framework
+  - Retaining vector-database results if the consequitive context are similar.
+  - Replacing auxiliary intent matching agent with pretrained BERT for intent similarity identification (or) Langraph.
