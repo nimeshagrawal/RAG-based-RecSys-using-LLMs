@@ -29,6 +29,8 @@ This work presents a real-time product recommendation system based on **Retrieva
 2. Create your account in `DeepInfra` and generate your API key for utilising the embedding and LLM models. Update required feilds in `config.yaml`
 3. Create your own local vector-database in chromaDB by running the following:\
       `python create_vectorStore.py`
+4. Run your streamlit application
+   `streamlit run app.py`
 
 ### Sample conversation
 ```
